@@ -1,8 +1,6 @@
 //! Data structures to store [`Model`] parts for analyses and for the
 //! reformulation process of creating a [`Solver`] object from a [`Model`].
 
-use std::collections::HashSet;
-
 use delegate::delegate;
 use index_vec::{define_index_type, IndexVec};
 use pindakaas::{
@@ -11,6 +9,7 @@ use pindakaas::{
 	ClauseDatabase, ClauseDatabaseTools, Encoder, Lit as RawLit, Unsatisfiable,
 };
 use rangelist::IntervalIterator;
+use rustc_hash::FxHashSet;
 use thiserror::Error;
 
 use crate::{
@@ -46,6 +45,8 @@ use crate::{
 	Model, Solver,
 };
 use crate::constraints::difference_logic::DifferenceLogic;
+
+type HashSet<T> = FxHashSet<T>;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 /// Definition of an Boolean decision variable in a [`Model`].

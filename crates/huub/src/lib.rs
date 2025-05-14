@@ -21,7 +21,7 @@ pub(crate) mod tests;
 
 use std::{
 	any::Any,
-	collections::{HashSet, VecDeque},
+	collections::VecDeque,
 	fmt::{Debug, Display},
 	hash::Hash,
 	iter::{repeat_n, repeat_with, Sum},
@@ -40,6 +40,7 @@ use pindakaas::{
 	ClauseDatabase, ClauseDatabaseTools, Cnf, Lit as RawLit, Unsatisfiable,
 };
 use rangelist::{IntervalIterator, RangeList};
+use rustc_hash::FxHashSet;
 use tracing::warn;
 
 use crate::{
@@ -70,6 +71,8 @@ use crate::{
 	solver::{engine::Engine, IntLitMeaning, Solver},
 };
 use crate::constraints::difference_logic::DifferenceLogic;
+
+type HashSet<T> = FxHashSet<T>;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[allow(
@@ -1123,8 +1126,8 @@ impl Model {
 		// TODO: Detect Views From Model
 
 		// Determine encoding types for integer variables
-		let mut int_eager_direct = HashSet::<IntDecisionIndex>::new();
-		let int_eager_order = HashSet::<IntDecisionIndex>::new();
+		let mut int_eager_direct = HashSet::<IntDecisionIndex>::default();
+		let int_eager_order = HashSet::<IntDecisionIndex>::default();
 
 		for c in self.constraints.iter().flatten() {
 			match c {

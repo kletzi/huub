@@ -24,7 +24,6 @@ macro_rules! outputln {
 mod trace;
 
 use std::{
-	collections::HashMap,
 	fmt::{self, Debug, Display},
 	fs::File,
 	io::{self, BufReader},
@@ -46,11 +45,14 @@ use huub::{
 	SlvTermSignal,
 };
 use pico_args::Arguments;
+use rustc_hash::FxHashMap;
 use tracing::{subscriber::set_default, warn};
 use tracing_subscriber::fmt::MakeWriter;
 use ustr::{ustr, Ustr, UstrMap};
 
 use crate::trace::LitName;
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 /// Status message to output when it is proven that no more/better solutions can
 /// be found.
@@ -234,7 +236,7 @@ where
 
 		// Create reverse map for solver variables if required
 		if self.verbose > 0 {
-			let mut lit_map = HashMap::new();
+			let mut lit_map = HashMap::default();
 			let mut int_map = vec![ustr(""); slv.init_statistics().int_vars()];
 			let mut keys: Vec<_> = var_map.keys().collect();
 			keys.sort();

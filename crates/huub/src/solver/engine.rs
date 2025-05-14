@@ -19,7 +19,7 @@ macro_rules! trace_new_lit {
 }
 
 use std::{
-	collections::{HashMap, VecDeque},
+	collections::VecDeque,
 	mem,
 };
 
@@ -31,6 +31,7 @@ use pindakaas::{
 	},
 	Lit as RawLit, Var as RawVar,
 };
+use rustc_hash::FxHashMap;
 pub(crate) use trace_new_lit;
 use tracing::{debug, trace};
 
@@ -49,6 +50,8 @@ use crate::{
 	},
 	Clause, IntVal,
 };
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 #[derive(Debug, Default, Clone)]
 /// A propagation engine implementing the [`Propagator`] trait.

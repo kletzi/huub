@@ -2,7 +2,7 @@
 
 use std::{
 	cell::RefCell,
-	collections::{hash_map::Entry, HashMap, HashSet},
+	collections::hash_map::Entry,
 	fmt::{Debug, Display},
 	hash::Hash,
 	iter::once,
@@ -17,12 +17,16 @@ use flatzinc_serde::{
 use itertools::Itertools;
 use pindakaas::propositional_logic::Formula;
 use rangelist::IntervalIterator;
+use rustc_hash::{FxHashMap, FxHashSet};
 use thiserror::Error;
 use tracing::warn;
 
 use crate::{abs_int, actions::SimplificationActions, all_different_int, array_element, array_maximum_int, array_minimum_int, constraints::int_table::IntTable, disjunctive_strict, div_int, int_in_set_reif, pow_int, reformulate::ReformulationError, table_int, times_int, BoolDecision, BoolDecisionInner, Branching, Decision, IntDecision, IntDecisionInner, IntLinExpr, IntSetVal, IntVal, Model, NonZeroIntVal, ValueSelection, VariableSelection};
 use crate::constraints::difference_logic::DifferenceLogic;
 use crate::reformulate::InitConfig;
+
+type HashSet<T> = FxHashSet<T>;
+type HashMap<K, V> = FxHashMap<K, V>;
 
 #[derive(Error, Debug)]
 /// Errors that can occur when converting a [`FlatZinc`] instance to a [`Model`]
@@ -815,7 +819,7 @@ where
 	pub(crate) fn new(fzn: &'a FlatZinc<S>) -> Self {
 		Self {
 			fzn,
-			map: HashMap::new(),
+			map: HashMap::default(),
 			prb: Model::default(),
 			processed: vec![false; fzn.constraints.len()],
 			stats: FlatZincStatistics::default(),
@@ -1675,7 +1679,7 @@ where
 	/// This can happen because of `bool_eq` and `int_eq` constraints in the
 	/// [`FlatZinc`] instance.
 	pub(crate) fn unify_variables(&mut self) -> Result<(), FlatZincError> {
-		let mut unify_map = HashMap::<S, Rc<RefCell<Vec<Literal<S>>>>>::new();
+		let mut unify_map = HashMap::<S, Rc<RefCell<Vec<Literal<S>>>>>::default();
 		let unify_map_find = |map: &HashMap<S, Rc<RefCell<Vec<Literal<S>>>>>, a: &Literal<S>| {
 			if let Literal::Identifier(x) = a {
 				map.get(x).map(Rc::clone)

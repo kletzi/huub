@@ -2,12 +2,11 @@
 //! for `fzn-huub`.
 
 use std::{
-	collections::HashMap,
 	fmt::{self, Display},
 	num::NonZeroI32,
 	sync::{Arc, Mutex},
 };
-
+use rustc_hash::FxHashMap;
 use huub::{solver::IntLitMeaning, IntVal};
 use tracing::{
 	field::{Field, Visit},
@@ -24,6 +23,8 @@ use tracing_subscriber::{
 	Layer,
 };
 use ustr::Ustr;
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 /// A [`tracing_subscriber::FormatFields`] implementation that attempts to
 /// format literals and integer variables according to their FlatZinc names,

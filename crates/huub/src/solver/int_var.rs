@@ -1,10 +1,7 @@
 //! Module containing the representation of integer variables within the solver.
 
 use std::{
-	collections::{
-		hash_map::{self, VacantEntry},
-		HashMap,
-	},
+	collections::hash_map::{self, VacantEntry},
 	iter::{Map, Peekable},
 	ops::{Index, IndexMut, RangeBounds, RangeInclusive},
 };
@@ -15,7 +12,7 @@ use pindakaas::{
 	VarRange,
 };
 use rangelist::{IntervalIterator, RangeList};
-
+use rustc_hash::FxHashMap;
 use crate::{
 	actions::TrailingActions,
 	solver::{
@@ -24,6 +21,8 @@ use crate::{
 	},
 	IntSetVal, IntVal, LinearTransform, NonZeroIntVal, Solver,
 };
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 /// An entry in the [`DirectStorage`] that can be used to access the
 /// representation of an equality condition, or insert a new literal to

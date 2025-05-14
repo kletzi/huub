@@ -1,11 +1,11 @@
 //! Module containing structures for tracking the relationships between Boolean
 //! variables and integer variables.
 
-use std::collections::HashMap;
-
 use pindakaas::{Var as RawVar, VarRange};
-
+use rustc_hash::FxHashMap;
 use crate::{solver::int_var::IntVarRef, IntLitMeaning};
+
+type HashMap<K, V> = FxHashMap<K, V>;
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
 /// A mapping of Boolean variables to integer variables of which they represent

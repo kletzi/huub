@@ -306,6 +306,7 @@ dependencies = [
  "humantime",
  "huub",
  "pico-args",
+ "rustc-hash",
  "serde_json",
  "tracing",
  "tracing-subscriber",
