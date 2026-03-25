@@ -94,7 +94,7 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 			{
 				let mut i = i + 1;
 				let mut k = k;
-				while i < self.vars.len() {
+				loop {
 					if self.vars[i].min(ctx) > k {
 						reason.push(self.vars[i].lit(ctx, IntLitMeaning::GreaterEq(k + 1)));
 						break;
@@ -143,7 +143,7 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 		// Current upper bound
 		let mut up = 0;
 		// Current lower bound
-		let mut low = 0;
+		let mut low = None;
 
 		// Forward pass to set upper bounds and capture the highest lower bound.
 		for (i, v) in self.vars.iter().enumerate() {
@@ -164,28 +164,31 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 			}
 			let lb_v = v.min(ctx);
 			// The lower bound will be needed for the backward pass.
-			if low < lb_v {
+			if lb_v > 0 && low.is_none_or(|v| v < lb_v) {
 				ctx.set_trailed(self.last[lb_v as usize], i as IntVal);
-				low = lb_v;
+				low = Some(lb_v);
 			}
 		}
-		// The highest lower bound is stored.
-		ctx.set_trailed(self.max_last, low);
 
-		// Backward pass to set lower bounds.
-		for (i, v) in self.vars.iter().enumerate().rev() {
-			// Lower bound is enforced if upper and lower bound coincide.
-			if ctx.trailed(self.first[low as usize]) == i as IntVal {
-				v.tighten_min(ctx, low, self.explain_lower(i, low))?;
-			}
-			// Found possibility to use a lower value - reduce lower bound.
-			if i as IntVal <= ctx.trailed(self.last[low as usize]) && v.in_domain(ctx, low) {
-				ctx.set_trailed(self.last[low as usize], i as IntVal);
-				low -= 1;
-			}
-			// Stop early if no more lower bounds can be propagated.
-			if low == 0 {
-				break;
+		if let Some(mut low) = low {
+			// The highest lower bound is stored.
+			ctx.set_trailed(self.max_last, low);
+
+			// Backward pass to set lower bounds.
+			for (i, v) in self.vars.iter().enumerate().rev() {
+				// Lower bound is enforced if upper and lower bound coincide.
+				if ctx.trailed(self.first[low as usize]) == i as IntVal {
+					v.tighten_min(ctx, low, self.explain_lower(i, low))?;
+				}
+				// Found possibility to use a lower value - reduce lower bound.
+				if i as IntVal <= ctx.trailed(self.last[low as usize]) && v.in_domain(ctx, low) {
+					ctx.set_trailed(self.last[low as usize], i as IntVal);
+					low -= 1;
+				}
+				// Stop early if no more lower bounds can be propagated.
+				if low == 0 {
+					break;
+				}
 			}
 		}
 
@@ -317,8 +320,7 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 
 		// Hit boundary case, this will cause a conflict.
 		if (i as usize) < self.vars.len() {
-			let conflict_index = if i > 0 { i as usize - 1 } else { 0 };
-			self.vars[conflict_index].tighten_min(ctx, k, self.explain_lower(conflict_index, k))?;
+			self.vars[i as usize - 1].tighten_min(ctx, k, self.explain_lower(i as usize - 1, k))?;
 		}
 
 		ctx.set_trailed(self.first[k as usize], 0);
@@ -457,7 +459,7 @@ impl<I> IntValuePrecedeChainValue<I> {
 				let mut i = i + 1;
 				let mut j = j;
 
-				while i < self.vars.len() && j < self.values.len() {
+				while j < self.values.len() {
 					// A lower bound is explained by stating that all untracked values are excluded
 					// (< min value, > max value, all holes), as well as all values with smaller
 					// indices.
@@ -526,7 +528,7 @@ impl<I> IntValuePrecedeChainValue<I> {
 		// Current upper bound
 		let mut up = 0;
 		// Current lower bound
-		let mut low = 0;
+		let mut low = None;
 
 		// Forward pass to set upper bounds and capture the highest lower bound.
 		for (i, v) in self.vars.iter().enumerate() {
@@ -541,28 +543,31 @@ impl<I> IntValuePrecedeChainValue<I> {
 			}
 			// The lower bound will be needed for the backward pass.
 			if let Ok(Some(lb)) = self.lowest_index(ctx, i)
-				&& low < lb
+				&& low.is_none_or(|v| v < lb)
 			{
 				ctx.set_trailed(self.last[lb], i as IntVal);
-				low = lb;
+				low = Some(lb);
 			}
 		}
 
-		// Backward pass to set lower bounds.
-		for (i, v) in self.vars.iter().enumerate().rev() {
-			// Lower bound is enforced if upper and lower bound coincide.
-			if ctx.trailed(self.first[low]) == i as IntVal {
-				self.propagate_min(ctx, i, low)?;
-			}
-			// Found possibility to use a lower value - reduce lower bound.
-			if i as IntVal <= ctx.trailed(self.last[low]) && v.in_domain(ctx, self.values[low - 1])
-			{
-				ctx.set_trailed(self.last[low], i as IntVal);
-				low -= 1;
-			}
-			// Stop early if no more lower bounds can be propagated.
-			if low == 0 {
-				break;
+		if let Some(mut low) = low {
+			// Backward pass to set lower bounds.
+			for (i, v) in self.vars.iter().enumerate().rev() {
+				// Lower bound is enforced if upper and lower bound coincide.
+				if ctx.trailed(self.first[low]) == i as IntVal {
+					self.propagate_min(ctx, i, low)?;
+				}
+				// Found possibility to use a lower value - reduce lower bound.
+				if i as IntVal <= ctx.trailed(self.last[low])
+					&& v.in_domain(ctx, self.values[low - 1])
+				{
+					ctx.set_trailed(self.last[low], i as IntVal);
+					low -= 1;
+				}
+				// Stop early if no more lower bounds can be propagated.
+				if low == 0 {
+					break;
+				}
 			}
 		}
 
@@ -736,9 +741,6 @@ impl<I> IntValuePrecedeChainValue<I> {
 			h += 1;
 		}
 		// Exclude values with lower index.
-		if j == 0 {
-			return Ok(());
-		}
 		for k in 0..j - 1 {
 			if self.vars[i].in_domain(ctx, self.values[k]) {
 				self.vars[i].remove_val(ctx, self.values[k], self.explain_lower(i, j))?;
@@ -828,7 +830,7 @@ impl<I> IntValuePrecedeChainValue<I> {
 
 		// Hit boundary case, this will cause a conflict.
 		if (i as usize) < self.vars.len() {
-			self.propagate_min(ctx, if i <= 0 { 0 } else { i as usize - 1 }, k)?;
+			self.propagate_min(ctx, i as usize - 1, k)?;
 			// Return Ok since the conflict is only detected during propagation
 			// (several domain elements are removed separately).
 			return Ok(());
@@ -963,6 +965,7 @@ where
 mod tests {
 	use std::cmp::max;
 
+	use expect_test::expect;
 	use rangelist::RangeList;
 	use tracing_test::traced_test;
 
@@ -978,23 +981,73 @@ mod tests {
 
 	#[test]
 	#[traced_test]
+	fn test_seq_precede_chain_single_var() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([-1..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntSeqPrecedeChainBounds::post(&mut slv, vec![x0]);
+		slv.expect_solutions(
+			&[x0],
+			expect![[r#"
+			-1
+			0
+			1"#]],
+		);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_seq_precede_chain_simple() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+		let x1 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntSeqPrecedeChainBounds::post(&mut slv, vec![x0, x1]);
+		slv.expect_solutions(
+			&[x0, x1],
+			expect![[r#"
+    		0, 0
+    		0, 1
+    		1, 0
+    		1, 1
+    		1, 2"#]],
+		);
+	}
+
+	#[test]
+	#[traced_test]
 	fn test_seq_precede_chain_paper() {
 		let mut slv = Solver::default();
 		let x1 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([0..=1]),
+			RangeList::from_iter([-1..=1]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
 		let x2 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([0..=1, 5..=5]),
+			RangeList::from_iter([-1..=1, 5..=5]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
 		let x3 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([0..=0, 3..=3]),
+			RangeList::from_iter([-1..=0, 3..=3]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
@@ -1048,25 +1101,25 @@ mod tests {
 		let mut slv = Solver::default();
 		let x1 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([1..=4]),
+			RangeList::from_iter([-1..=4]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
 		let x2 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([1..=4]),
+			RangeList::from_iter([-1..=4]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
 		let x3 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([1..=4]),
+			RangeList::from_iter([-1..=4]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
 		let x4 = IntDecision::new_in(
 			&mut slv,
-			RangeList::from_iter([1..=4]),
+			RangeList::from_iter([-1..=4]),
 			EncodingType::Eager,
 			EncodingType::Eager,
 		);
@@ -1147,7 +1200,88 @@ mod tests {
 
 	#[test]
 	#[traced_test]
-	fn test_value_precede_chain_zero_lower_bound() {
+	fn test_val_precede_chain_single_var() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntValuePrecedeChainValue::post(&mut slv, vec![2, 1], vec![x0]);
+		slv.expect_solutions(
+			&[x0],
+			expect![[r#"
+    		0
+    		2
+    		3"#]],
+		);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_val_precede_chain_simple() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+		let x1 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntValuePrecedeChainValue::post(&mut slv, vec![1, 3], vec![x0, x1]);
+		slv.expect_solutions(
+			&[x0, x1],
+			expect![[r#"
+    		0, 0
+    		0, 1
+    		0, 2
+    		1, 0
+    		1, 1
+    		1, 2
+    		1, 3
+    		2, 0
+    		2, 1
+    		2, 2"#]],
+		);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_val_precede_chain_all_enforced() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([1..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+		let x1 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([1..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntValuePrecedeChainValue::post(&mut slv, vec![3, 2, 1], vec![x0, x1]);
+		slv.expect_solutions(
+			&[x0, x1],
+			expect![[r#"
+    		3, 2
+    		3, 3"#]],
+		);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_value_precede_chain_holes() {
 		let mut slv = Solver::default();
 		let x0 = IntDecision::new_in(
 			&mut slv,
@@ -1157,7 +1291,12 @@ mod tests {
 		);
 
 		IntValuePrecedeChainValue::post(&mut slv, vec![1, 3], vec![x0]);
-		slv.assert_all_solutions(&[x0], valid_value_precede(vec![1, 3]));
+		slv.expect_solutions(
+			&[x0],
+			expect![[r#"
+    		0
+    		1"#]],
+		);
 	}
 
 	#[test]
