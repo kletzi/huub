@@ -94,7 +94,7 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 			{
 				let mut i = i + 1;
 				let mut k = k;
-				loop {
+				while i < self.vars.len() {
 					if self.vars[i].min(ctx) > k {
 						reason.push(self.vars[i].lit(ctx, IntLitMeaning::GreaterEq(k + 1)));
 						break;
@@ -317,7 +317,8 @@ impl<I> IntSeqPrecedeChainBounds<I> {
 
 		// Hit boundary case, this will cause a conflict.
 		if (i as usize) < self.vars.len() {
-			self.vars[i as usize - 1].tighten_min(ctx, k, self.explain_lower(i as usize - 1, k))?;
+			let conflict_index = if i > 0 { i as usize - 1 } else { 0 };
+			self.vars[conflict_index].tighten_min(ctx, k, self.explain_lower(conflict_index, k))?;
 		}
 
 		ctx.set_trailed(self.first[k as usize], 0);
@@ -456,7 +457,7 @@ impl<I> IntValuePrecedeChainValue<I> {
 				let mut i = i + 1;
 				let mut j = j;
 
-				while j < self.values.len() {
+				while i < self.vars.len() && j < self.values.len() {
 					// A lower bound is explained by stating that all untracked values are excluded
 					// (< min value, > max value, all holes), as well as all values with smaller
 					// indices.
@@ -735,6 +736,9 @@ impl<I> IntValuePrecedeChainValue<I> {
 			h += 1;
 		}
 		// Exclude values with lower index.
+		if j == 0 {
+			return Ok(());
+		}
 		for k in 0..j - 1 {
 			if self.vars[i].in_domain(ctx, self.values[k]) {
 				self.vars[i].remove_val(ctx, self.values[k], self.explain_lower(i, j))?;
@@ -824,7 +828,7 @@ impl<I> IntValuePrecedeChainValue<I> {
 
 		// Hit boundary case, this will cause a conflict.
 		if (i as usize) < self.vars.len() {
-			self.propagate_min(ctx, i as usize - 1, k)?;
+			self.propagate_min(ctx, if i <= 0 { 0 } else { i as usize - 1 }, k)?;
 			// Return Ok since the conflict is only detected during propagation
 			// (several domain elements are removed separately).
 			return Ok(());
@@ -1139,6 +1143,21 @@ mod tests {
 			&[x0, x1, x2, x3, x4, x5, x6, x7, x8],
 			valid_value_precede(vec![2, -2, 1, -1]),
 		);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_value_precede_chain_zero_lower_bound() {
+		let mut slv = Solver::default();
+		let x0 = IntDecision::new_in(
+			&mut slv,
+			RangeList::from_iter([0..=1, 3..=3]),
+			EncodingType::Eager,
+			EncodingType::Eager,
+		);
+
+		IntValuePrecedeChainValue::post(&mut slv, vec![1, 3], vec![x0]);
+		slv.assert_all_solutions(&[x0], valid_value_precede(vec![1, 3]));
 	}
 
 	#[test]
