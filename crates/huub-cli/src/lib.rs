@@ -137,6 +137,8 @@ pub struct Cli<Stdout, Stderr> {
 	diff_logic_inc_imp: bool,
 	/// Difference logic mode for explaining boolean changes.
 	diff_logic_bool_reasons: Option<u8>,
+	/// Whether to do initial simplifications in difference logic.
+	diff_logic_simplify: bool,
 
 	// --- Output configuration ---
 	/// Output stream for (intermediate) solutions and statistics
@@ -210,6 +212,7 @@ where
 			self.diff_logic_prio_bools,
 			self.diff_logic_inc_imp,
 			self.diff_logic_bool_reasons,
+			self.diff_logic_simplify,
 		);
 		config
 	}
@@ -594,6 +597,7 @@ where
 			diff_logic_prio_bools: self.diff_logic_prio_bools,
 			diff_logic_inc_imp: self.diff_logic_inc_imp,
 			diff_logic_bool_reasons: self.diff_logic_bool_reasons,
+			diff_logic_simplify: self.diff_logic_simplify,
 			stdout: self.stdout,
 		}
 	}
@@ -631,6 +635,7 @@ where
 			diff_logic_prio_bools: self.diff_logic_prio_bools,
 			diff_logic_inc_imp: self.diff_logic_inc_imp,
 			diff_logic_bool_reasons: self.diff_logic_bool_reasons,
+			diff_logic_simplify: self.diff_logic_simplify,
 			stderr: self.stderr,
 			ansi_color: self.ansi_color,
 		}
@@ -737,6 +742,10 @@ impl TryFrom<Arguments> for Cli<io::Stdout, fn() -> io::Stderr> {
 				.map_err(|e| e.to_string())?,
 			diff_logic_bool_reasons: args
 				.opt_value_from_str("--diff-logic-bool-reasons")
+				.map_err(|e| e.to_string())?,
+			diff_logic_simplify: args
+				.opt_value_from_fn("--diff-logic-simplify", parse_bool_arg)
+				.map(|x| x.unwrap_or(true))
 				.map_err(|e| e.to_string())?,
 
 			verbose,

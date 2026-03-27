@@ -69,6 +69,8 @@ pub struct InitConfig {
 	pub(crate) diff_logic_inc_imp: bool,
 	/// Difference logic mode for explaining boolean changes.
 	pub(crate) diff_logic_bool_reasons: u8,
+	/// Whether to do initial simplifications in difference logic.
+	pub(crate) diff_logic_simplify: bool,
 }
 
 /// Actions that can be performed when reformulating a [`Model`] object into a
@@ -356,12 +358,14 @@ impl InitConfig {
 		diff_logic_prio_bools: Option<u8>,
 		diff_logic_inc_imp: bool,
 		diff_logic_bool_reasons: Option<u8>,
+		diff_logic_simplify: bool,
 	) -> Self {
 		self.diff_logic = diff_logic.unwrap_or(1);
 		self.diff_logic_prio_bounds = diff_logic_prio_bounds.unwrap_or(1);
 		self.diff_logic_prio_bools = diff_logic_prio_bools.unwrap_or(1);
 		self.diff_logic_inc_imp = diff_logic_inc_imp;
 		self.diff_logic_bool_reasons = diff_logic_bool_reasons.unwrap_or(0);
+		self.diff_logic_simplify = diff_logic_simplify;
 		self
 	}
 }

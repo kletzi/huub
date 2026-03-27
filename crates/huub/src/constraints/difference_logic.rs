@@ -110,6 +110,8 @@ pub struct DifferenceLogicParameters {
 	use_inc_imp: bool,
 	/// Mode for explaining boolean changes.
 	bool_reasons: u8,
+	/// Whether to do initial simplifications.
+	simplify: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -175,6 +177,7 @@ impl DifferenceLogicCollection {
 		priority_level_bools: u8,
 		use_inc_imp: bool,
 		bool_reasons: u8,
+		simplify: bool,
 	) -> Self {
 		Self {
 			level,
@@ -183,6 +186,7 @@ impl DifferenceLogicCollection {
 				priority_level_bools: parse_priority_level(priority_level_bools),
 				use_inc_imp,
 				bool_reasons,
+				simplify,
 			},
 			raw_constraints: Vec::new(),
 		}
@@ -1004,9 +1008,11 @@ where
 			self.graph.propagate_bounds(ctx)?;
 			self.graph.propagate_booleans(ctx, false, true)?;
 			// Already do removals before Johnson's to reduce complexity of the graph
-			self.check_remove_fixed_nodes(ctx);
-			self.check_remove_isolated_nodes(ctx);
-			self.johnson_full(ctx)?;
+			if self.parameters.simplify {
+				self.check_remove_fixed_nodes(ctx);
+				self.check_remove_isolated_nodes(ctx);
+				self.johnson_full(ctx)?;
+			}
 			self.initialized = true;
 		}
 
@@ -2371,10 +2377,13 @@ where
 
 #[cfg(test)]
 mod tests {
-	use std::num::NonZero;
+	use std::{num::NonZero, time::Instant};
 
 	use itertools::Itertools;
-	use pindakaas::{Lit as RawLit, Var as RawVar, solver::propagation::SolvingActions};
+	use pindakaas::{
+		Lit as RawLit, Var as RawVar,
+		solver::propagation::{Propagator as ExternalPropagator, SolvingActions},
+	};
 	use rangelist::RangeList;
 	use tracing::trace;
 	use tracing_test::traced_test;
@@ -2386,13 +2395,13 @@ mod tests {
 			IntSimplificationActions,
 		},
 		constraints::{
-			BoolSolverActions, Constraint, IntSolverActions,
+			BoolModelActions, BoolSolverActions, Constraint, IntModelActions, IntSolverActions,
 			difference_logic::{
 				DiffEdge, DifferenceLogicCollection, DifferenceLogicConstraint,
 				DifferenceLogicGraph, DifferenceLogicModel,
 			},
 		},
-		lower::InitConfig,
+		lower::{InitConfig, LoweringMap},
 		model,
 		model::{ConRef, view::integer::IntView},
 		solver,
@@ -2660,6 +2669,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			bool_reasons,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -2743,6 +2753,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars5[0],
@@ -2861,6 +2872,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -2898,6 +2910,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -2944,6 +2957,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -3042,6 +3056,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -3132,6 +3147,7 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
+			true,
 		);
 		diff_logic.add(DifferenceLogicConstraint::Global(
 			int_vars[0],
@@ -3166,5 +3182,151 @@ mod tests {
 			trace!("Checking x = {x}, y = {y}, z = {z}");
 			x - y <= 3 && y - z <= -2 && x == 5 && z == 5
 		});
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_worst_case() {
+		for n in [
+			100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+		] {
+			for _ in 0..3 {
+				test_worst_case_diff(n);
+				test_worst_case_lin(n);
+			}
+		}
+	}
+
+	fn simulate_propagation(
+		mut slv: Solver,
+		map: LoweringMap,
+		x: Vec<model::View<IntVal>>,
+		y: Vec<model::View<IntVal>>,
+		n: usize,
+		k: usize,
+	) {
+		let (mut actions, mut engine) = slv.as_parts_mut();
+		let mut ctx = SolvingContext::new(&mut actions, &mut engine.state);
+		let x_slv = x.iter().map(|&v| map.get(&mut ctx, v)).collect_vec();
+		let y_slv = y.iter().map(|&v| map.get(&mut ctx, v)).collect_vec();
+
+		for j in 1..k {
+			let mut ctx = SolvingContext::new(&mut actions, &mut engine.state);
+			y_slv[0]
+				.tighten_min(&mut ctx, (j * n) as IntVal, [])
+				.expect("Tightening min failed");
+
+			loop {
+				let mut change = false;
+				while ExternalPropagator::add_external_clause(&mut *engine, &mut actions).is_some()
+				{
+					change = true;
+				}
+				while let Some(prop) = ExternalPropagator::propagate(&mut *engine, &mut actions) {
+					ExternalPropagator::notify_assignments(&mut *engine, &[prop]);
+				}
+				if !change {
+					break;
+				}
+			}
+
+			let ctx = SolvingContext::new(&mut actions, &mut engine.state);
+			for (i, y) in y_slv.iter().enumerate().skip(1) {
+				assert_eq!(((j - 1) * n + i) as IntVal - 1, y.min(&ctx));
+			}
+			for x in x_slv.iter() {
+				assert_eq!((j * n) as IntVal - 1, x.min(&ctx));
+			}
+		}
+	}
+
+	fn test_worst_case_diff(n: usize)
+	where
+		model::View<IntVal>: IntModelActions<Model>,
+		model::View<bool>: BoolModelActions<Model>,
+		solver::View<IntVal>: IntSolverActions<Engine>,
+	{
+		let timer = Instant::now();
+		let k = 10;
+		let mut prb = Model::default();
+		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		y.insert(
+			0,
+			prb.new_int_decision(RangeList::from_iter([n as IntVal..=(k * n) as IntVal])),
+		);
+		let mut diff_logic = DifferenceLogicCollection::new(
+			LEVEL,
+			PRIO_BOUNDS,
+			PRIO_BOOLS,
+			USE_INC_IMP,
+			BOOL_REASONS,
+			false,
+		);
+		for i in 2..=n {
+			diff_logic.add(DifferenceLogicConstraint::Global(y[i - 1], y[i], 0));
+		}
+		for i in 1..=n {
+			diff_logic.add(DifferenceLogicConstraint::Global(
+				y[0],
+				y[i],
+				(n - i + 1) as IntVal,
+			));
+		}
+		diff_logic.add(DifferenceLogicConstraint::Global(y[n], x[0], 0));
+		for i in 0..n {
+			for j in i + 1..=n {
+				diff_logic.add(DifferenceLogicConstraint::Global(x[i], x[j], 0));
+			}
+		}
+		let diff_logic_model = diff_logic
+			.process(&mut prb)
+			.expect("Creating model failed")
+			.expect("Model is empty");
+		prb.post_constraint(diff_logic_model);
+		let build = timer.elapsed();
+
+		let timer = Instant::now();
+		let (slv, map): (Solver, _) = prb.to_solver(&InitConfig::default()).unwrap();
+		let lower = timer.elapsed();
+
+		let timer = Instant::now();
+		simulate_propagation(slv, map, x, y, n, k);
+		let propagate = timer.elapsed();
+		trace!(n, build = ?build, lower = ?lower, propagate = ?propagate, "diff timing");
+	}
+
+	fn test_worst_case_lin(n: usize) {
+		let timer = Instant::now();
+		let k = 10;
+		let mut prb = Model::default();
+		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		y.insert(
+			0,
+			prb.new_int_decision(RangeList::from_iter([n as IntVal..=(k * n) as IntVal])),
+		);
+		for i in 1..=n {
+			prb.linear(y[0] - y[i]).le((n - i + 1) as IntVal).post();
+		}
+		for i in 2..=n {
+			prb.linear(y[i - 1] - y[i]).le(0).post();
+		}
+		prb.linear(y[n] - x[0]).le(0).post();
+		for i in 0..n {
+			for j in i + 1..=n {
+				prb.linear(x[i] - x[j]).le(0).post();
+			}
+		}
+		let build = timer.elapsed();
+
+		let timer = Instant::now();
+		let (slv, map): (Solver, _) = prb.to_solver(&InitConfig::default()).unwrap();
+		let lower = timer.elapsed();
+
+		let timer = Instant::now();
+		simulate_propagation(slv, map, x, y, n, k);
+		let propagate = timer.elapsed();
+		trace!(n, build = ?build, lower = ?lower, propagate = ?propagate, "lin timing");
 	}
 }

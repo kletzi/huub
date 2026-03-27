@@ -1075,6 +1075,7 @@ where
 			config.diff_logic_prio_bools,
 			config.diff_logic_inc_imp,
 			config.diff_logic_bool_reasons,
+			config.diff_logic_simplify,
 		);
 		// Traditional relational constraints
 		for (i, c) in self.fzn.constraints.iter().enumerate() {
