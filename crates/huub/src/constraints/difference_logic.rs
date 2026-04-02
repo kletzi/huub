@@ -2377,7 +2377,7 @@ where
 
 #[cfg(test)]
 mod tests {
-	use std::{num::NonZero, time::Instant};
+	use std::{fs::File, io::Write, num::NonZero, time::Instant};
 
 	use itertools::Itertools;
 	use pindakaas::{
@@ -3185,14 +3185,22 @@ mod tests {
 	}
 
 	#[test]
-	#[traced_test]
 	fn test_worst_case() {
+		let mut out = File::create("test_worst_case.csv").expect("Creating file failed");
+		writeln!(&mut out, "diff test").expect("Writing to file failed");
 		for n in [
 			100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
 		] {
 			for _ in 0..3 {
-				test_worst_case_diff(n);
-				test_worst_case_lin(n);
+				test_worst_case_diff(&mut out, n);
+			}
+		}
+		writeln!(&mut out, "lin test").expect("Writing to file failed");
+		for n in [
+			100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
+		] {
+			for _ in 0..3 {
+				test_worst_case_lin(&mut out, n);
 			}
 		}
 	}
@@ -3240,7 +3248,7 @@ mod tests {
 		}
 	}
 
-	fn test_worst_case_diff(n: usize)
+	fn test_worst_case_diff(out: &mut File, n: usize)
 	where
 		model::View<IntVal>: IntModelActions<Model>,
 		model::View<bool>: BoolModelActions<Model>,
@@ -3293,10 +3301,18 @@ mod tests {
 		let timer = Instant::now();
 		simulate_propagation(slv, map, x, y, n, k);
 		let propagate = timer.elapsed();
-		trace!(n, build = ?build, lower = ?lower, propagate = ?propagate, "diff timing");
+		writeln!(
+			out,
+			"{}, {}, {}, {}",
+			n,
+			build.as_millis(),
+			lower.as_millis(),
+			propagate.as_millis()
+		)
+		.expect("Writing to file failed");
 	}
 
-	fn test_worst_case_lin(n: usize) {
+	fn test_worst_case_lin(out: &mut File, n: usize) {
 		let timer = Instant::now();
 		let k = 10;
 		let mut prb = Model::default();
@@ -3327,6 +3343,14 @@ mod tests {
 		let timer = Instant::now();
 		simulate_propagation(slv, map, x, y, n, k);
 		let propagate = timer.elapsed();
-		trace!(n, build = ?build, lower = ?lower, propagate = ?propagate, "lin timing");
+		writeln!(
+			out,
+			"{}, {}, {}, {}",
+			n,
+			build.as_millis(),
+			lower.as_millis(),
+			propagate.as_millis()
+		)
+		.expect("Writing to file failed");
 	}
 }
