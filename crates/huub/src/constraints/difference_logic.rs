@@ -3220,7 +3220,7 @@ mod tests {
 		let x_slv = x.iter().map(|&v| map.get(&mut ctx, v)).collect_vec();
 		let y_slv = y.iter().map(|&v| map.get(&mut ctx, v)).collect_vec();
 
-		for j in 1..k {
+		for j in 1..=k {
 			let mut ctx = SolvingContext::new(&mut actions, &mut engine.state);
 			y_slv[0]
 				.tighten_min(&mut ctx, (j * n) as IntVal, [])
