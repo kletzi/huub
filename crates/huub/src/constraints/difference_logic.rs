@@ -3243,10 +3243,10 @@ mod tests {
 
 			let ctx = SolvingContext::new(&mut actions, &mut engine.state);
 			for y in y_slv.iter().skip(1) {
-				assert_eq!(((j + 1) * n) as IntVal, y.min(&ctx));
+				assert_eq!((j * n) as IntVal, y.min(&ctx));
 			}
 			for x in x_slv.iter() {
-				assert_eq!(((j + 1) * n) as IntVal, x.min(&ctx));
+				assert_eq!((j * n) as IntVal, x.min(&ctx));
 			}
 		}
 	}
@@ -3260,8 +3260,8 @@ mod tests {
 		let timer = Instant::now();
 		let k = 10;
 		let mut prb = Model::default();
-		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
-		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
+		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=(k * n) as IntVal]));
+		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=(k * n) as IntVal]));
 		y.insert(
 			0,
 			prb.new_int_decision(RangeList::from_iter([0..=(k * n) as IntVal])),
@@ -3278,7 +3278,7 @@ mod tests {
 			diff_logic.add(DifferenceLogicConstraint::Global(
 				y[0],
 				y[i],
-				-((n - i + 1) as IntVal),
+				(i - 1) as IntVal,
 			));
 		}
 		for i in 2..=n {
@@ -3326,7 +3326,7 @@ mod tests {
 			prb.new_int_decision(RangeList::from_iter([0..=(k * n) as IntVal])),
 		);
 		for i in (1..=n).rev() {
-			prb.linear(y[0] - y[i]).le(-((n - i + 1) as IntVal)).post();
+			prb.linear(y[0] - y[i]).le((i - 1) as IntVal).post();
 		}
 		for i in 2..=n {
 			prb.linear(y[i - 1] - y[i]).le(0).post();
