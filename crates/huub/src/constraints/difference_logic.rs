@@ -3187,18 +3187,20 @@ mod tests {
 	#[test]
 	fn test_worst_case() {
 		let mut out = File::create("test_worst_case.csv").expect("Creating file failed");
-		writeln!(&mut out, "diff test").expect("Writing to file failed");
-		for n in [
-			100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
-		] {
+		writeln!(&mut out, "diff+simplify test").expect("Writing to file failed");
+		for n in [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000] {
 			for _ in 0..3 {
-				test_worst_case_diff(&mut out, n);
+				test_worst_case_diff(&mut out, true, n);
+			}
+		}
+		writeln!(&mut out, "diff-simplify test").expect("Writing to file failed");
+		for n in [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000] {
+			for _ in 0..3 {
+				test_worst_case_diff(&mut out, false, n);
 			}
 		}
 		writeln!(&mut out, "lin test").expect("Writing to file failed");
-		for n in [
-			100, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000,
-		] {
+		for n in [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000] {
 			for _ in 0..3 {
 				test_worst_case_lin(&mut out, n);
 			}
@@ -3232,6 +3234,7 @@ mod tests {
 				}
 				while let Some(prop) = ExternalPropagator::propagate(&mut *engine, &mut actions) {
 					ExternalPropagator::notify_assignments(&mut *engine, &[prop]);
+					change = true;
 				}
 				if !change {
 					break;
@@ -3239,16 +3242,16 @@ mod tests {
 			}
 
 			let ctx = SolvingContext::new(&mut actions, &mut engine.state);
-			for (i, y) in y_slv.iter().enumerate().skip(1) {
-				assert_eq!(((j - 1) * n + i) as IntVal - 1, y.min(&ctx));
+			for y in y_slv.iter().skip(1) {
+				assert_eq!(((j + 1) * n) as IntVal, y.min(&ctx));
 			}
 			for x in x_slv.iter() {
-				assert_eq!((j * n) as IntVal - 1, x.min(&ctx));
+				assert_eq!(((j + 1) * n) as IntVal, x.min(&ctx));
 			}
 		}
 	}
 
-	fn test_worst_case_diff(out: &mut File, n: usize)
+	fn test_worst_case_diff(out: &mut File, simplify: bool, n: usize)
 	where
 		model::View<IntVal>: IntModelActions<Model>,
 		model::View<bool>: BoolModelActions<Model>,
@@ -3257,11 +3260,11 @@ mod tests {
 		let timer = Instant::now();
 		let k = 10;
 		let mut prb = Model::default();
-		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
-		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
+		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
 		y.insert(
 			0,
-			prb.new_int_decision(RangeList::from_iter([n as IntVal..=(k * n) as IntVal])),
+			prb.new_int_decision(RangeList::from_iter([0..=(k * n) as IntVal])),
 		);
 		let mut diff_logic = DifferenceLogicCollection::new(
 			LEVEL,
@@ -3269,17 +3272,17 @@ mod tests {
 			PRIO_BOOLS,
 			USE_INC_IMP,
 			BOOL_REASONS,
-			false,
+			simplify,
 		);
-		for i in 2..=n {
-			diff_logic.add(DifferenceLogicConstraint::Global(y[i - 1], y[i], 0));
-		}
-		for i in 1..=n {
+		for i in (1..=n).rev() {
 			diff_logic.add(DifferenceLogicConstraint::Global(
 				y[0],
 				y[i],
-				(n - i + 1) as IntVal,
+				-((n - i + 1) as IntVal),
 			));
+		}
+		for i in 2..=n {
+			diff_logic.add(DifferenceLogicConstraint::Global(y[i - 1], y[i], 0));
 		}
 		diff_logic.add(DifferenceLogicConstraint::Global(y[n], x[0], 0));
 		for i in 0..n {
@@ -3316,14 +3319,14 @@ mod tests {
 		let timer = Instant::now();
 		let k = 10;
 		let mut prb = Model::default();
-		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
-		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k - 1) * n) as IntVal]));
+		let x = prb.new_int_decisions(n + 1, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
+		let mut y = prb.new_int_decisions(n, RangeList::from_iter([0..=((k + 1) * n) as IntVal]));
 		y.insert(
 			0,
-			prb.new_int_decision(RangeList::from_iter([n as IntVal..=(k * n) as IntVal])),
+			prb.new_int_decision(RangeList::from_iter([0..=(k * n) as IntVal])),
 		);
-		for i in 1..=n {
-			prb.linear(y[0] - y[i]).le((n - i + 1) as IntVal).post();
+		for i in (1..=n).rev() {
+			prb.linear(y[0] - y[i]).le(-((n - i + 1) as IntVal)).post();
 		}
 		for i in 2..=n {
 			prb.linear(y[i - 1] - y[i]).le(0).post();
