@@ -78,7 +78,8 @@ FLAGS
   --diff-logic-prio-bools		  Priority for difference logic boolean propagation (default: 1, range: 0-5)
   --diff-logic-inc-imp <on|off>	  Use incremental check of implied constraints (default: on)
   --diff-logic-bool-reasons       Mode for difference logic boolean reasons: 0 (lazy + lifted, default), 
-  								  1 (eager + lifted), 2 (eager, not lifted) 
+  								  1 (eager + lifted), 2 (eager, not lifted)
+  --diff-logic-simplify <on|off>  Do initial simplifications in difference logic (default: on)
   
 
                       === BEHAVIOUR OPTIONS ===
