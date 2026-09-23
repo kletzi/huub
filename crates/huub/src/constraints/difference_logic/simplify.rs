@@ -370,6 +370,7 @@ impl DifferenceLogicModel {
 		ctx: &model::SimplificationContext<'_>,
 		source: usize,
 		pred: &mut [usize],
+		zero_cycle: bool
 	) {
 		self.graph.reset_visit();
 		self.graph.queue.clear();
@@ -387,6 +388,10 @@ impl DifferenceLogicModel {
 							new_dist - self.graph.pi[source] + self.graph.pi[to];
 						pred[to] = s;
 					}
+				} else if zero_cycle && to == source && new_dist == 0 {
+					// Zero-cycle found, stop search.
+					pred[source] = s;
+					return;
 				} else if to == source && new_dist < self.distances[[source, source]] {
 					// A path back to the origin closes a cycle; record it, but
 					// do not settle the origin a second time.
@@ -553,7 +558,7 @@ impl DifferenceLogicModel {
 			if !self.node_active[n] {
 				continue;
 			}
-			self.dijkstra_from(ctx, n, &mut pred);
+			self.dijkstra_from(ctx, n, &mut pred, false);
 			if self.distances[[n, n]] == 0 {
 				zero_cycles.push(n);
 			}
@@ -613,7 +618,7 @@ impl DifferenceLogicModel {
 				continue;
 			}
 			trace!(target: "diff_logic", n = ?n, "cycle of length zero");
-			self.dijkstra_from(ctx, n, &mut pred);
+			self.dijkstra_from(ctx, n, &mut pred, true);
 			let mut offset = 0;
 			let mut cur = n;
 			loop {
