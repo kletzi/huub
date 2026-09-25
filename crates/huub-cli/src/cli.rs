@@ -208,7 +208,7 @@ pub struct Cli<'a> {
 	#[arg(long, default_value_t = 1, value_name = "u64", hide_default_value = true, required_if_eq_any = [("search_strategy", "transition"), ("search_strategy", "interleaved")], help_heading = CLI_SECTION_SEARCH)]
 	pub(crate) search_interval: u64,
 	/// Whether to use difference logic.
-	#[arg(long)]
+	#[arg(long, action = ArgAction::Set, value_parser = BoolishValueParser::new(), value_name = "bool", default_value_t = true)]
 	pub(crate) diff_logic: bool,
 
 	/// CaDiCaL-specific solver options.
