@@ -294,7 +294,7 @@ impl DifferenceLogicConstraint {
 		Some(Self {
 			x: (x_dec, x_scale),
 			y: (y_dec, y_scale),
-			d: rhs - x_offset - y_offset,
+			d: rhs - x_offset + y_offset,
 			comparator,
 			reif,
 		})
