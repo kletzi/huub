@@ -207,6 +207,9 @@ pub struct Cli<'a> {
 	/// --search-interval 2` triggers after/every 2 restarts.
 	#[arg(long, default_value_t = 1, value_name = "u64", hide_default_value = true, required_if_eq_any = [("search_strategy", "transition"), ("search_strategy", "interleaved")], help_heading = CLI_SECTION_SEARCH)]
 	pub(crate) search_interval: u64,
+	/// Whether to use difference logic.
+	#[arg(long)]
+	pub(crate) diff_logic: bool,
 
 	/// CaDiCaL-specific solver options.
 	#[command(flatten)]
@@ -320,6 +323,7 @@ impl<'a> Cli<'a> {
 			search_strategy: self.search_strategy,
 			search_trigger: self.search_trigger,
 			search_interval: self.search_interval,
+			diff_logic: self.diff_logic,
 			cadical: self.cadical,
 			log_file: self.log_file,
 			color: self.color,
@@ -373,6 +377,7 @@ impl Debug for Cli<'_> {
 			.field("search_strategy", &self.search_strategy)
 			.field("search_trigger", &self.search_trigger)
 			.field("search_interval", &self.search_interval)
+			.field("diff_logic", &self.diff_logic)
 			.field("cadical", &self.cadical)
 			.field("log_file", &self.log_file)
 			.field("color", &self.color)
