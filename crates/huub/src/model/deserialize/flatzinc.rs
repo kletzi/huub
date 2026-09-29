@@ -41,6 +41,7 @@ use crate::{
 		branchers::{DecisionSelection, DomainSelection},
 	},
 };
+use crate::constraints::difference_logic::DifferenceLogicLevel;
 
 /// Domain assumed for integer decision variables that do not have a domain
 /// definition.
@@ -416,7 +417,7 @@ pub trait HuubFlatZinc {
 	/// to a [`Model`] (via [`to_model()`](Lowerer::to_model)) or directly to
 	/// a [`Solver`](crate::solver::Solver) (via
 	/// [`to_solver()`](Lowerer::to_solver)).
-	fn lower(&self) -> Lowerer<Result<FlatZincLowerData, FlatZincError>>;
+	fn lower(&self, diff_logic: bool) -> Lowerer<Result<FlatZincLowerData, FlatZincError>>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -665,9 +666,14 @@ impl TryFrom<&str> for ConstraintIdent {
 }
 
 impl HuubFlatZinc for FlatZinc<FznIdent> {
-	fn lower(&self) -> Lowerer<Result<FlatZincLowerData, FlatZincError>> {
+	fn lower(&self, diff_logic: bool) -> Lowerer<Result<FlatZincLowerData, FlatZincError>> {
 		let deserialize_model = |fzn: &FlatZinc<FznIdent>| {
 			let mut builder = FznModelBuilder::new(fzn);
+			if diff_logic {
+				builder.prb.set_difference_logic_level(DifferenceLogicLevel::Difference);
+			} else { 
+				builder.prb.set_difference_logic_level(DifferenceLogicLevel::Off);
+			}
 			builder.unify_variables()?;
 			builder.extract_views()?;
 			builder.post_constraints()?;
