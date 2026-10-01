@@ -995,6 +995,47 @@ mod tests {
 
 	#[test]
 	#[traced_test]
+	fn test_model_advisor_bool_eq_in_call() {
+		let mut prb = Model::default();
+		let i = prb.new_int_decision(0..=3);
+		let b = i.eq(2);
+		let bool_check = prb.new_trailed(0);
+		let int_check = prb.new_trailed(0);
+		let t = TestModel {
+			b,
+			i,
+			bool_check,
+			int_check,
+		};
+		prb.post_constraint(t).unwrap();
+		i.fix(&mut prb, 2, NO_REASON).expect("fix failed");
+		let (_, _): (Solver, _) = prb.lower().to_solver().expect("to_solver failed");
+		assert_eq!(prb.trailed(bool_check), 1);
+	}
+
+	#[test]
+	#[traced_test]
+	fn test_model_advisor_bool_eq_out_call() {
+		let mut prb = Model::default();
+		let i = prb.new_int_decision(0..=3);
+		let b = i.eq(2);
+		let bool_check = prb.new_trailed(0);
+		let int_check = prb.new_trailed(0);
+		let t = TestModel {
+			b,
+			i,
+			bool_check,
+			int_check,
+		};
+		prb.post_constraint(t).unwrap();
+		i.tighten_max(&mut prb, 1, NO_REASON)
+			.expect("tighten_max failed");
+		let (_, _): (Solver, _) = prb.lower().to_solver().expect("to_solver failed");
+		assert_eq!(prb.trailed(bool_check), 1);
+	}
+
+	#[test]
+	#[traced_test]
 	fn test_model_advisor_bool_no_call() {
 		let mut prb = Model::default();
 		let i = prb.new_int_decision(0..=3);
