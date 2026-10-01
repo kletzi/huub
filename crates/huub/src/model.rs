@@ -446,7 +446,9 @@ impl Model {
 				};
 				let enqueue = if let Some(cond) = condition {
 					let triggered = match cond {
-						IntLitMeaning::Eq(_) | IntLitMeaning::NotEq(_) => iv.val(self).is_some(),
+						IntLitMeaning::Eq(v) | IntLitMeaning::NotEq(v) => {
+							iv.val(self).is_some() || !iv.in_domain(self, v)
+						}
 						IntLitMeaning::GreaterEq(v) | IntLitMeaning::Less(v) => {
 							let (min, max) = iv.bounds(self);
 							v <= min || v > max
