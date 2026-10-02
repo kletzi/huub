@@ -726,6 +726,11 @@ impl Model {
 		self.diff_logic_level = level;
 	}
 
+	/// Set the budget for the difference logic all-pairs simplification.
+	pub fn set_difference_logic_budget(&mut self, budget: usize) {
+		self.diff_logic_all_pairs_budget = Some(budget);
+	}
+
 	/// Invoke `f` with a [`ConstraintId`] for each constraint that the given
 	/// integer decision is subscribed to (i.e. that may involve it). The same
 	/// constraint may be reported more than once.

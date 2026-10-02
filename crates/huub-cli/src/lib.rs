@@ -123,7 +123,7 @@ impl<'a> Cli<'a> {
 		let deadline = self.time_limit.map(|t| start + t);
 
 		let (mut slv, meta): (Solver, _) = match fzn
-			.lower(self.diff_logic)
+			.lower(self.diff_logic, self.diff_logic_budget)
 			.int_eager_limit(self.int_eager_limit)
 			.preprocessing(self.cadical.preprocessing)
 			.conditioning(self.cadical.conditioning)

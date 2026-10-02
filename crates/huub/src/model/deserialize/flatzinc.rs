@@ -412,7 +412,7 @@ pub trait HuubFlatZinc {
 	/// to a [`Model`] (via [`to_model()`](Lowerer::to_model)) or directly to
 	/// a [`Solver`](crate::solver::Solver) (via
 	/// [`to_solver()`](Lowerer::to_solver)).
-	fn lower(&self, diff_logic: bool) -> Lowerer<Result<FlatZincLowerData, FlatZincError>>;
+	fn lower(&self, diff_logic: bool, diff_logic_budget: usize) -> Lowerer<Result<FlatZincLowerData, FlatZincError>>;
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -661,9 +661,10 @@ impl TryFrom<&str> for ConstraintIdent {
 }
 
 impl HuubFlatZinc for FlatZinc<FznIdent> {
-	fn lower(&self, diff_logic: bool) -> Lowerer<Result<FlatZincLowerData, FlatZincError>> {
+	fn lower(&self, diff_logic: bool, diff_logic_budget: usize) -> Lowerer<Result<FlatZincLowerData, FlatZincError>> {
 		let deserialize_model = |fzn: &FlatZinc<FznIdent>| {
 			let mut builder = FznModelBuilder::new(fzn);
+			builder.prb.set_difference_logic_budget(diff_logic_budget);
 			if diff_logic {
 				builder.prb.set_difference_logic_level(DifferenceLogicLevel::Difference);
 			} else { 

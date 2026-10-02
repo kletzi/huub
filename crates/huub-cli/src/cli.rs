@@ -210,6 +210,9 @@ pub struct Cli<'a> {
 	/// Whether to use difference logic.
 	#[arg(long, action = ArgAction::Set, value_parser = BoolishValueParser::new(), value_name = "bool", default_value_t = true)]
 	pub(crate) diff_logic: bool,
+    /// Budget for the difference logic all-pairs simplification.
+    #[arg(long, value_name = "usize", default_value_t = 400_000_000)]
+    pub(crate) diff_logic_budget: usize,
 
 	/// CaDiCaL-specific solver options.
 	#[command(flatten)]
@@ -324,6 +327,7 @@ impl<'a> Cli<'a> {
 			search_trigger: self.search_trigger,
 			search_interval: self.search_interval,
 			diff_logic: self.diff_logic,
+			diff_logic_budget: self.diff_logic_budget,
 			cadical: self.cadical,
 			log_file: self.log_file,
 			color: self.color,
@@ -378,6 +382,7 @@ impl Debug for Cli<'_> {
 			.field("search_trigger", &self.search_trigger)
 			.field("search_interval", &self.search_interval)
 			.field("diff_logic", &self.diff_logic)
+			.field("diff_logic_budget", &self.diff_logic_budget)
 			.field("cadical", &self.cadical)
 			.field("log_file", &self.log_file)
 			.field("color", &self.color)
