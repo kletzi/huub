@@ -445,7 +445,7 @@ impl DifferenceLogicModel {
 		<Self as Propagator<Model>>::propagate(self, ctx)?;
 		// Removing nodes first keeps the all-pairs computation smaller.
 		self.reduce(ctx);
-		self.johnson_full(ctx)?;
+		self.johnson_full(ctx, false)?;
 		self.initialized = true;
 		let (nodes, gates, active, implied) = self.size(ctx);
 		debug!(
@@ -462,11 +462,12 @@ impl DifferenceLogicModel {
 	fn johnson_full(
 		&mut self,
 		ctx: &mut model::SimplificationContext<'_>,
+		use_budget: bool
 	) -> Result<(), <Model as ReasoningEngine>::Conflict> {
 		let num_nodes = self.graph.num_nodes();
 		let num_edges = self.graph.edges.len();
 		let work = num_nodes.saturating_mul(num_nodes.saturating_add(num_edges));
-		if work > self.all_pairs_budget {
+		if use_budget && work > self.all_pairs_budget {
 			debug!(
 				target: "diff_logic",
 				nodes = num_nodes, edges = num_edges, work, budget = self.all_pairs_budget,
@@ -1062,7 +1063,7 @@ impl Constraint<Model> for DifferenceLogicModel {
 			// Removing nodes first keeps the all-pairs computation smaller, as
 			// in [`Self::initialize`].
 			self.reduce(ctx);
-			self.johnson_full(ctx)?;
+			self.johnson_full(ctx, true)?;
 		} else if self.initialized {
 			// Implied edges leave the active graph, and so the distances,
 			// unchanged, so the last pass still answers for them.
