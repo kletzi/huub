@@ -1068,6 +1068,10 @@ impl Constraint<Model> for DifferenceLogicModel {
 		let new_edges = mem::take(&mut self.new_edges);
 		let mut new_active = false;
 		if !self.initialized {
+			trace!(target: "diff_logic",
+				"starting initial propagation with graph: {}",
+				self.graph.to_dot(ctx, self.node_active.clone())
+			);
 			self.initialize(ctx)?;
 		} else {
 			for &e in &new_edges {

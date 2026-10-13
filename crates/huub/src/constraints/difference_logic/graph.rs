@@ -1013,6 +1013,51 @@ where
 			}
 		})
 	}
+
+	/// Generate a dot presentation of the graph.
+	pub(crate) fn to_dot<Ctx>(&self, ctx: &Ctx, filter: Vec<bool>) -> String
+	where
+		Ctx: ReasoningContext + TrailingActions,
+		I: IntInspectionActions<Ctx>,
+	{
+		let mut out = "digraph {\n".to_owned();
+		for n in (0..self.num_nodes()).filter(|&n| filter[n]) {
+			out.push_str(
+				format!(
+					"\"{:?}\" [label=\"{:?} (lb: {:?}, ub: {:?}, pi: {:?})\"]\n",
+					n,
+					n,
+					self.cur_min(ctx, n),
+					self.cur_max(ctx, n),
+					self.pi[n]
+				)
+					.as_str(),
+			);
+			for &e in self.active_out[n].iter(ctx) {
+				let edge = &self.edges[e];
+				out.push_str(
+					format!(
+						"\"{:?}\" -> \"{:?}\" [label=\"{:?} ({:?})\"]\n",
+						n, edge.to, edge.val, edge.bool_dcn
+					)
+						.as_str(),
+				);
+			}
+			for i in self.open_out[n].open_indices(ctx) {
+				let e = *self.open_out[n].index(ctx, i);
+				let edge = &self.edges[e];
+				out.push_str(
+					format!(
+						"\"{:?}\" -> \"{:?}\" [label=\"{:?} ({:?})\"]\n",
+						n, edge.to, edge.val, edge.bool_dcn
+					)
+						.as_str(),
+				);
+			}
+		}
+		out += "}";
+		out
+	}
 }
 
 impl<I, B> Default for DifferenceLogicGraph<I, B> {
