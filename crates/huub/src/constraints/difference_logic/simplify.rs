@@ -10,6 +10,7 @@
 use std::{cell::RefCell, mem, ops::Not, rc::Rc};
 
 use itertools::Itertools;
+use lapjv::lapjv;
 use rustc_hash::{FxHashMap, FxHashSet};
 use tracing::{debug, trace};
 
@@ -1038,6 +1039,36 @@ impl DifferenceLogicModel {
 		}
 		Ok(())
 	}
+
+	fn assignment_lb(&mut self, ctx: &mut model::SimplificationContext<'_>) ->Result<(), <Model as ReasoningEngine>::Conflict> {
+		let final_node = self.graph.open_out.iter().enumerate().filter(|(_, o)| o.num_open(ctx) == 0).exactly_one().expect("Could not find a unique final node").0;
+		let mut m = lapjv::Matrix::from_elem((self.graph.num_nodes(), self.graph.num_nodes()), f64::INFINITY);
+		for j in 0..self.graph.num_nodes() {
+			if j != final_node {
+				m[(final_node, j)] = 0.0;
+			}
+		}
+		for i in 0..self.graph.num_nodes() {
+			let mut j = 0;
+			while j < self.graph.active_out[i].len(ctx) {
+				let e = *self.graph.active_out[i].index(ctx, j);
+				let edge = &self.graph.edges[e];
+				m[(i, edge.to)] = -edge.val as f64;
+				j += 1;
+			}
+			for j in self.graph.open_out[i].open_indices(ctx) {
+				let e = *self.graph.open_out[i].index(ctx, j);
+				let edge = &self.graph.edges[e];
+				m[(i, edge.to)] = -edge.val as f64;
+			}
+		}
+		trace!(target: "diff_logic", "Matrix: {:?}", m);
+		let result = lapjv(&m).unwrap();
+		println!("{result:?}");
+		let lb = result.0.iter().enumerate().map(|(i, &j)| m[(i, j)]).sum::<f64>();
+		println!("{lb}");
+		self.graph.int_dcns[final_node].tighten_min(ctx, lb as IntVal, NO_REASON)
+	}
 }
 
 impl Constraint<Model> for DifferenceLogicModel {
@@ -1073,6 +1104,7 @@ impl Constraint<Model> for DifferenceLogicModel {
 				self.graph.to_dot(ctx, self.node_active.clone())
 			);
 			self.initialize(ctx)?;
+			self.assignment_lb(ctx)?;
 		} else {
 			for &e in &new_edges {
 				if self.graph.edges[e].bool_dcn.is_none() {

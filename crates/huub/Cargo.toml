@@ -17,6 +17,7 @@ bon = { workspace = true }
 deepclone = { workspace = true }
 flatzinc-serde = { workspace = true, optional	= true }
 itertools = { workspace = true }
+lapjv = { workspace = true }
 pindakaas = { workspace = true, features = ["external-propagation"] }
 rangelist = { workspace = true }
 rustc-hash = { workspace = true }
